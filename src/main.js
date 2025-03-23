@@ -28,7 +28,7 @@ let walking = null;
 
 k.loadSprite("map", "./new/map.png");
 
-k.setBackground(k.Color.fromHex("#800000")); //maroon
+k.setBackground(k.Color.fromHex("#311047"));
 
 k.scene("main", async () => {
   const mapData = await (await fetch("./new/map.json")).json();
