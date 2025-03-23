@@ -10,7 +10,7 @@ export const dialogueData = {
     bed: `This where I sleep. Great ideas comes when I'm lying on my bed. When an idea strikes, I often have to write it down or else I won't be able to sleep because my mental energy is consumed by it.`,
     resume: `This is my desk and on it is my resume. <a href="https://fugomika.github.io/dev-porto" target="_blank">Check it out?</a>
     Contact me at farras.ft@gmail.com if you have any interesting job opportunities!`,
-    projects: `Info about this portfolio : It's made with the Kaplau.js library which is a library for making games in JavaScript.
+    projects: `Info about this portfolio : It's made with the Kaplay.js library which is a library for making games in JavaScript.
     Text is rendered with HTML/CSS.`,
     library: `There are a lot of books on my shelves. I like to read books on programming, self-improvement, and philosophy. I think reading is a great way to learn new things.`,
     exit: `If you want to exit Fugomika Home, just close the tab.`,
