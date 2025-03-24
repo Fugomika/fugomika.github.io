@@ -26,12 +26,12 @@ k.loadSprite("spritesheet", "./spritesheet.png", {
 k.loadSound("walking", "./walk.mp3");
 let walking = null;
 
-k.loadSprite("map", "./new/map.png");
+k.loadSprite("map", "./map.png");
 
 k.setBackground(k.Color.fromHex("#311047"));
 
 k.scene("main", async () => {
-  const mapData = await (await fetch("./new/map.json")).json();
+  const mapData = await (await fetch("./map.json")).json();
   const layers = mapData.layers;
 
   const map = k.make([k.sprite("map"), k.pos(0), k.scale(scaleFactor)]);
@@ -195,8 +195,12 @@ k.scene("main", async () => {
     player.play("idle-side");
   }
 
-  k.onKeyDown((key) => {
-        if (!walking) {
+  if(k.isKeyDown("space") || k.isKeyDown("enter")) {
+    document.getElementById("close").click();
+  }
+
+  function move(x,y,dir,flip) {
+      if (!walking) {
         walking = k.play("walking", {
           volume: 1.5, // set the volume to 50%
           speed: 1.5, // speed up the sound
@@ -204,52 +208,30 @@ k.scene("main", async () => {
         });
       }
 
-    const keyMap = [
-      k.isKeyDown("right"),
-      k.isKeyDown("left"),
-      k.isKeyDown("up"),
-      k.isKeyDown("down"),
-    ];
-
-    let nbOfKeyPressed = 0;
-    for (const key of keyMap) {
-      if (key) {
-        nbOfKeyPressed++;
-      }
-    }
-
-    if (nbOfKeyPressed > 1) return;
-
     if (player.isInDialogue) return;
-    if (keyMap[0]) {
-      player.flipX = false;
-      if (player.curAnim() !== "walk-side") player.play("walk-side");
-      player.direction = "right";
-      player.move(player.speed, 0);
-      return;
+
+    if(dir == "side"){
+      player.flipX = flip;
     }
 
-    if (keyMap[1]) {
-      player.flipX = true;
-      if (player.curAnim() !== "walk-side") player.play("walk-side");
-      player.direction = "left";
-      player.move(-player.speed, 0);
-      return;
-    }
+    player.move(x, y);
+    player.direction = dir;
 
-    if (keyMap[2]) {
-      if (player.curAnim() !== "walk-up") player.play("walk-up");
-      player.direction = "up";
-      player.move(0, -player.speed);
-      return;
-    }
+    //if key pressed is 2
+    // alert(k.isKeyDown())
 
-    if (keyMap[3]) {
-      if (player.curAnim() !== "walk-down") player.play("walk-down");
-      player.direction = "down";
-      player.move(0, player.speed);
-    }
-  });
+    if(player.curAnim() !== `walk-${dir}`) player.play(`walk-${dir}`);
+  }
+
+
+  player.onUpdate(() => {
+    if (k.isKeyDown("left")) move(-player.speed, 0, "side", true)
+    if (k.isKeyDown("right")) move(player.speed, 0, "side")
+    if (k.isKeyDown("up")) move(0, -player.speed, "up")
+    if (k.isKeyDown("down")) move(0, player.speed, "down")
+  })
+
+    // if towo keys are pressed, the player will move diagonally
 
   k.onKeyRelease(() => {
     stopAnims();
