@@ -134,6 +134,28 @@
       background: #ffd700;
       color: #111;
     }
+    #swipe-box {
+      display: none;
+      width: 90vw;
+      max-width: 420px;
+      margin: 10px 0 0 0;
+      padding: 18px 0;
+      text-align: center;
+      font-size: 1.3rem;
+      color: #ffd700;
+      background: #333;
+      border-radius: 10px;
+      user-select: none;
+      font-weight: bold;
+      letter-spacing: 1px;
+      box-shadow: 0 2px 8px #0008;
+      touch-action: pan-x;
+    }
+    @media (max-width: 600px) {
+      #swipe-box {
+        display: block;
+      }
+    }
 
     /* Responsive styles */
     @media (max-width: 600px) {
@@ -182,11 +204,13 @@
   <div id="start-overlay">
     <button id="start-btn">Ready!</button>
   </div>
-  <h1>Fugomika's Revolver</h1>
+  <h1 id="main-title">Ready!</h1>
   <div id="revolver-container">
     <svg id="revolver-svg" viewBox="0 0 320 320"></svg>
   </div>
   <div id="site-name"></div>
+  <!-- Add swipe box for mobile -->
+  <div id="swipe-box">◀️ Swipe Left / Right Here▶️</div>
   <div class="button-row">
     <button id="cock-btn" class="revolver-btn" aria-disabled="false">Cock</button>
     <button id="uncock-btn" class="revolver-btn" aria-disabled="true">Uncock</button>
@@ -207,7 +231,7 @@
       {
         name: "LinkedIn",
         icon: "linkedin",
-        url: "https://www.linkedin.com/in/fugomika/"
+        url: "https://www.linkedin.com/in/abdurrahmanfarrasft/"
       },
       {
         name: "GitHub",
@@ -274,6 +298,9 @@
         this.emptySound = document.getElementById('empty-sound');
         this.startOverlay = document.getElementById('start-overlay');
         this.startBtn = document.getElementById('start-btn');
+        this.mainTitle = document.getElementById('main-title');
+        this.mainTitleDefault = "Ready!";
+        this.mainTitleTimeout = null;
 
         // Bind methods
         this.unlockAudio = this.unlockAudio.bind(this);
@@ -335,22 +362,17 @@
       }
 
       setupEventListeners() {
-        if (this.startBtn) {
-          this.startBtn.addEventListener('click', () => {
-            this.unlockAudio();
-          });
-        }
+        if (this.startBtn) this.startBtn.addEventListener('click', this.unlockAudio);
         if (this.cockBtn) this.cockBtn.addEventListener('click', this.cock);
         if (this.fireBtn) this.fireBtn.addEventListener('click', this.fire);
         if (this.uncockBtn) this.uncockBtn.addEventListener('click', this.uncock);
-
         window.addEventListener('keydown', this.handleKeydown);
         window.addEventListener('wheel', this.handleWheel);
-
         if (this.svg) {
-          this.svg.addEventListener('touchstart', this.handleTouchStart, {passive: false});
-          this.svg.addEventListener('touchmove', this.handleTouchMove, {passive: false});
-          this.svg.addEventListener('touchend', this.handleTouchEnd, {passive: false});
+          // Remove passive: false, use default (passive: true) so preventDefault is ignored, but touch events still fire
+          this.svg.addEventListener('touchstart', this.handleTouchStart);
+          this.svg.addEventListener('touchmove', this.handleTouchMove);
+          this.svg.addEventListener('touchend', this.handleTouchEnd);
           this.svg.addEventListener('mousedown', this.handleMouseDown);
         }
       }
@@ -364,49 +386,44 @@
 
       handleTouchStart = (e) => {
         if (!this.audioUnlocked || this.isCocked || this.isSpinning) return;
-        if (e.touches.length === 1) {
-          e.preventDefault();
+        if (e.touches && e.touches.length > 0) {
           const touch = e.touches[0];
+          this.touchStartX = touch.clientX;
+          this.touchStartY = touch.clientY;
           this.isDragging = true;
-          this.touchStartAngle = this.getPointerAngle(touch.clientX, touch.clientY);
-          this.startRotation = this.rotation;
-          this.lastDragIdx = ((this.chambers - Math.round(this.rotation / (360 / this.chambers)) % this.chambers) % this.chambers);
         }
       }
 
       handleTouchMove = (e) => {
-        if (!this.isDragging) return;
-        if (e.touches.length === 1) {
-          e.preventDefault();
-          const touch = e.touches[0];
-          const angle = this.getPointerAngle(touch.clientX, touch.clientY);
-          let delta = angle - this.touchStartAngle;
-          if (delta > 180) delta -= 360;
-          if (delta < -180) delta += 360;
-          this.rotation = this.startRotation + delta;
-          this.spinVelocity = 0;
-          // Chamber index after rotation
-          let currIdx = ((this.chambers - Math.round(this.rotation / (360 / this.chambers)) % this.chambers) % this.chambers);
-          if (this.audioUnlocked && currIdx !== this.lastDragIdx) {
-            try {
-              if (this.spinSound) {
-                this.spinSound.currentTime = 0;
-                this.spinSound.play().catch(()=>{});
-              }
-            } catch (e) {}
-            this.lastDragIdx = currIdx;
-          }
-          this.updateUI();
-        }
+        // No-op for swipe-to-spin
       }
 
       handleTouchEnd = (e) => {
         if (!this.isDragging) return;
         this.isDragging = false;
-        // Snap to nearest chamber
-        const snapAngle = Math.round(this.rotation / (360 / this.chambers)) * (360 / this.chambers);
-        this.rotation = snapAngle;
-        this.updateUI();
+        if (e.changedTouches && e.changedTouches.length > 0) {
+          const touch = e.changedTouches[0];
+          const dx = touch.clientX - this.touchStartX;
+          const dy = touch.clientY - this.touchStartY;
+          const threshold = 30; // px
+
+          // Get SVG center
+          const rect = this.svg.getBoundingClientRect();
+          const centerX = rect.left + rect.width / 2;
+          const centerY = rect.top + rect.height / 2;
+
+          if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > threshold) {
+            // Horizontal swipe
+            let dir = dx < 0 ? 1 : -1;
+            if (this.touchStartX < centerX) dir = -dir;
+            this.spin(dir);
+          } else if (Math.abs(dy) > threshold) {
+            // Vertical swipe
+            let dir = dy < 0 ? -1 : 1;
+            if (this.touchStartY < centerY) dir = -dir;
+            this.spin(dir);
+          }
+        }
       }
 
       handleMouseDown = (e) => {
@@ -424,10 +441,8 @@
         if (!this.isDragging) return;
         e.preventDefault();
         const angle = this.getPointerAngle(e.clientX, e.clientY);
-        let delta = angle - this.touchStartAngle;
-        if (delta > 180) delta -= 360;
-        if (delta < -180) delta += 360;
-        this.rotation = this.startRotation + delta;
+        // Direct mapping: rotation follows mouse
+        this.rotation = this.startRotation + (angle - this.touchStartAngle);
         this.spinVelocity = 0;
         // Chamber index after rotation
         let currIdx = ((this.chambers - Math.round(this.rotation / (360 / this.chambers)) % this.chambers) % this.chambers);
@@ -554,6 +569,24 @@
         }
       }
 
+      setMainTitleState(state) {
+        if (!this.mainTitle) return;
+        clearTimeout(this.mainTitleTimeout);
+        if (state === "steady") {
+          this.mainTitle.textContent = "Steady!";
+          this.mainTitle.style.color = "#ffd700";
+        } else if (state === "shoot") {
+          this.mainTitle.textContent = "Shoot!";
+          this.mainTitle.style.color = "#b22222";
+          this.mainTitleTimeout = setTimeout(() => {
+            this.setMainTitleState("ready");
+          }, 1000);
+        } else {
+          this.mainTitle.textContent = this.mainTitleDefault;
+          this.mainTitle.style.color = "#ffd700";
+        }
+      }
+
       updateUI() {
         // Calculate selected chamber based on rotation
         let idx = ((this.chambers - Math.round(this.rotation / (360 / this.chambers)) % this.chambers) % this.chambers);
@@ -577,9 +610,83 @@
         }
       }
 
+      cock() {
+        if (!this.audioUnlocked || this.isCocked || this.isSpinning) return;
+        this.isCocked = true;
+        if (this.fireBtn) this.fireBtn.disabled = false;
+        if (this.cockBtn) this.cockBtn.disabled = true;
+        // Play cock (load) sound and animate hammer
+        if (this.audioUnlocked) {
+          try {
+            if (this.cockSound) {
+              this.cockSound.currentTime = 0;
+              this.cockSound.play().catch(()=>{});
+            }
+          } catch (e) {}
+        }
+        this.setMainTitleState("steady");
+        this.updateUI();
+        // Optional: hammer animation effect
+        if (this.cockAnimTimeout) clearTimeout(this.cockAnimTimeout);
+        this.cockAnimTimeout = setTimeout(() => {
+          // Remove hammer highlight after a short time if desired
+          // this.isCocked = false; this.updateUI();
+        }, 500);
+      }
+
+      uncock() {
+        if (!this.audioUnlocked || !this.isCocked || this.isSpinning) return;
+        this.isCocked = false;
+        if (this.fireBtn) this.fireBtn.disabled = true;
+        if (this.cockBtn) this.cockBtn.disabled = false;
+        if (this.uncockBtn) this.uncockBtn.disabled = true;
+        // Optional: play a sound for uncocking (reuse cockSound)
+        if (this.audioUnlocked) {
+          try {
+            if (this.cockSound) {
+              this.cockSound.currentTime = 0;
+              this.cockSound.play().catch(()=>{});
+            }
+          } catch (e) {}
+        }
+        this.updateUI();
+      }
+
+      fire() {
+        if (!this.audioUnlocked || !this.isCocked) return;
+        if (this.fireBtn) this.fireBtn.disabled = true;
+        if (this.cockBtn) this.cockBtn.disabled = false;
+        this.isCocked = false;
+        // Play shot sound or empty sound, then open in new tab if not empty
+        if (this.audioUnlocked) {
+          try {
+            if (this.sites[this.selected].url) {
+              if (this.shotSound) {
+                this.shotSound.currentTime = 0;
+                this.shotSound.play().catch(()=>{});
+              }
+            } else {
+              if (this.emptySound) {
+                this.emptySound.currentTime = 0;
+                this.emptySound.play().catch(()=>{});
+              }
+            }
+          } catch (e) {}
+        }
+        this.setMainTitleState("shoot");
+        this.updateUI();
+        setTimeout(() => {
+          if (this.sites[this.selected].url) {
+            window.open(this.sites[this.selected].url, '_blank');
+          }
+        }, 600);
+      }
+
       animate() {
         this.spinningStopped = false;
+
         let prevIdx = ((this.chambers - Math.round(this.rotation / (360 / this.chambers)) % this.chambers) % this.chambers);
+        
         this.rotation += this.spinVelocity;
         this.spinVelocity *= this.friction;
 
@@ -629,77 +736,6 @@
           this.animate();
         }
       }
-
-      cock() {
-        if (!this.audioUnlocked || this.isCocked || this.isSpinning) return;
-        this.isCocked = true;
-        if (this.fireBtn) this.fireBtn.disabled = false;
-        if (this.cockBtn) this.cockBtn.disabled = true;
-        // Play cock (load) sound and animate hammer
-        if (this.audioUnlocked) {
-          try {
-            if (this.cockSound) {
-              this.cockSound.currentTime = 0;
-              this.cockSound.play().catch(()=>{});
-            }
-          } catch (e) {}
-        }
-        this.updateUI();
-        // Optional: hammer animation effect
-        if (this.cockAnimTimeout) clearTimeout(this.cockAnimTimeout);
-        this.cockAnimTimeout = setTimeout(() => {
-          // Remove hammer highlight after a short time if desired
-          // this.isCocked = false; this.updateUI();
-        }, 500);
-      }
-
-      uncock() {
-        if (!this.audioUnlocked || !this.isCocked || this.isSpinning) return;
-        this.isCocked = false;
-        if (this.fireBtn) this.fireBtn.disabled = true;
-        if (this.cockBtn) this.cockBtn.disabled = false;
-        if (this.uncockBtn) this.uncockBtn.disabled = true;
-        // Optional: play a sound for uncocking (reuse cockSound)
-        if (this.audioUnlocked) {
-          try {
-            if (this.cockSound) {
-              this.cockSound.currentTime = 0;
-              this.cockSound.play().catch(()=>{});
-            }
-          } catch (e) {}
-        }
-        this.updateUI();
-      }
-
-      fire() {
-        if (!this.audioUnlocked || !this.isCocked) return;
-        if (this.fireBtn) this.fireBtn.disabled = true;
-        if (this.cockBtn) this.cockBtn.disabled = false;
-        this.isCocked = false;
-        // Play shot sound or empty sound, then open in new tab if not empty
-        if (this.audioUnlocked) {
-          try {
-            if (this.sites[this.selected].url) {
-              if (this.shotSound) {
-                this.shotSound.currentTime = 0;
-                this.shotSound.play().catch(()=>{});
-              }
-            } else {
-              if (this.emptySound) {
-                this.emptySound.currentTime = 0;
-                this.emptySound.play().catch(()=>{});
-              }
-            }
-          } catch (e) {}
-        }
-        this.updateUI();
-        setTimeout(() => {
-          if (this.sites[this.selected].url) {
-            window.open(this.sites[this.selected].url, '_blank');
-          }
-        }, 600);
-      }
-
       handleKeydown(e) {
         if (!this.audioUnlocked) return;
         if (['ArrowLeft','a','A','w','W','ArrowUp'].includes(e.key)) {
@@ -737,6 +773,38 @@
         }
       });
     });
+
+    // Add swipe gesture for #swipe-box on mobile
+    (function() {
+      const swipeBox = document.getElementById('swipe-box');
+      if (!swipeBox) return;
+      let startX = null;
+      let startY = null;
+      swipeBox.addEventListener('touchstart', function(e) {
+        if (e.touches && e.touches.length > 0) {
+          startX = e.touches[0].clientX;
+          startY = e.touches[0].clientY;
+        }
+      });
+      swipeBox.addEventListener('touchend', function(e) {
+        if (startX === null) return;
+        if (e.changedTouches && e.changedTouches.length > 0) {
+          const dx = e.changedTouches[0].clientX - startX;
+          const dy = e.changedTouches[0].clientY - startY;
+          const threshold = 30;
+          if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > threshold) {
+            // Left/right swipe
+            if (dx > 0) {
+              revolver.spin(-1); // right swipe
+            } else {
+              revolver.spin(1); // left swipe
+            }
+          }
+        }
+        startX = null;
+        startY = null;
+      });
+    })();
   </script>
 </body>
 </html>
