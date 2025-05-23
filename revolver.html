@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Fugomika's Revolver Portal</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="A fun interactive revolver game that links to various websites. Spin the revolver and click to fire!">
+    <meta name="keywords" content="revolver, game, interactive, websites, links, portal, fugomika, portfolio">
+    <meta name="author" content="Fugomika">
+    <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /><path d="M12 12m-8 0a8 8 0 1 0 16 0a8 8 0 1 0 -16 0" /><path d="M12 2l0 2" /><path d="M12 20l0 2" /><path d="M20 12l2 0" /><path d="M2 12l2 0" /></svg>'>
+  <style>
+    body {
+      background: #222;
+      color: #eee;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+    h1 {
+      margin-bottom: 10px;
+      letter-spacing: 2px;
+      font-size: 2.2rem;
+    }
+    #revolver-container {
+      margin: 30px 0 10px 0;
+      width: 90vw;
+      max-width: 420px;
+      height: 90vw;
+      max-height: 420px;
+      position: relative;
+    }
+    #revolver-svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+      touch-action: pan-x pan-y;
+    }
+    .chamber-label {
+      font-size: 16px;
+      fill: #fff;
+      text-anchor: middle;
+      dominant-baseline: middle;
+      pointer-events: none;
+      user-select: none;
+    }
+    #instructions {
+      margin-top: 10px;
+      font-size: 15px;
+      color: #bbb;
+      text-align: center;
+    }
+    #site-name {
+      margin-top: 12px;
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: #ffd700;
+      min-height: 24px;
+      text-align: center;
+      word-break: break-word;
+    }
+    .button-row {
+      display: flex;
+      flex-direction: row;
+      gap: 10px;
+      justify-content: center;
+      align-items: center;
+      margin-top: 18px;
+      margin-bottom: 0;
+      flex-wrap: wrap;
+    }
+    .revolver-btn {
+      padding: 12px 28px;
+      font-size: 1.1rem;
+      background: #444;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 2px 8px #0008;
+      transition: background 0.2s, opacity 0.2s;
+      outline: none;
+      min-width: 90px;
+      min-height: 44px;
+      position: relative;
+      opacity: 1;
+    }
+    .revolver-btn[disabled], .revolver-btn.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+    #cock-btn {
+      background: #444;
+    }
+    #uncock-btn {
+      background: #888;
+    }
+    #fire-btn {
+      background: #b22222;
+    }
+    #fire-btn:active:not([disabled]) {
+      background: #ff4444;
+    }
+    #start-overlay {
+      position: fixed;
+      z-index: 9999;
+      inset: 0;
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      transition: opacity 0.5s;
+    }
+    #start-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    #start-btn {
+      font-size: 2rem;
+      padding: 1.2em 2.5em;
+      background: #111;
+      color: #ffd700;
+      border: 2px solid #ffd700;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+    }
+    #start-btn:hover {
+      background: #ffd700;
+      color: #111;
+    }
+
+    /* Responsive styles */
+    @media (max-width: 600px) {
+      #revolver-container {
+        width: 98vw;
+        height: 98vw;
+        max-width: 98vw;
+        max-height: 98vw;
+        min-width: 220px;
+        min-height: 220px;
+      }
+      h1 {
+        font-size: 1.3rem;
+      }
+      #site-name {
+        font-size: 1rem;
+      }
+      .revolver-btn {
+        font-size: 1rem;
+        padding: 10px 10px;
+        min-width: 70px;
+        min-height: 38px;
+      }
+      .button-row {
+        gap: 6px;
+      }
+      #instructions {
+        font-size: 13px;
+      }
+    }
+    @media (max-width: 400px) {
+      #revolver-container {
+        min-width: 120px;
+        min-height: 120px;
+      }
+      .revolver-btn {
+        font-size: 0.9rem;
+        padding: 8px 4px;
+        min-width: 50px;
+        min-height: 32px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="start-overlay">
+    <button id="start-btn">Ready!</button>
+  </div>
+  <h1>Fugomika's Revolver</h1>
+  <div id="revolver-container">
+    <svg id="revolver-svg" viewBox="0 0 320 320"></svg>
+  </div>
+  <div id="site-name"></div>
+  <div class="button-row">
+    <button id="cock-btn" class="revolver-btn" aria-disabled="false">Cock</button>
+    <button id="uncock-btn" class="revolver-btn" aria-disabled="true">Uncock</button>
+    <button id="fire-btn" class="revolver-btn" disabled aria-disabled="true">Fire!</button>
+  </div>
+  <div id="instructions">
+    Scroll, use WASD or arrow keys to spin.<br>
+    Cock the gun, then click "Fire!" or press Space/Enter to shoot.
+  </div>
+    <audio id="spin-sound" src="spin.mp3"></audio>
+    <audio id="shot-sound" src="shot.mp3"></audio>
+    <audio id="cock-sound" src="cock.mp3"></audio>
+    <audio id="empty-sound" src="empty.mp3"></audio>
+
+  <script>
+    // --- Config: Add your websites here ---
+    const sites = [
+      {
+        name: "LinkedIn",
+        icon: "linkedin",
+        url: "https://www.linkedin.com/in/fugomika/"
+      },
+      {
+        name: "GitHub",
+        icon: "github",
+        url: "https://github.com/Fugomika"
+      },
+      {
+        name: "Instagram",
+        icon: "instagram",
+        url: "https://www.instagram.com/farras.ft/"
+      },
+      {
+        name: "Portfolio",
+        icon: "web",
+        url: "https://fugomika.github.io/dev-porto/"
+      },
+      {
+        name: "Empty",
+        icon: "empty",
+        url: null // This is the empty chamber
+      },
+      {
+        name: "Empty",
+        icon: "empty",
+        url: null // Another empty chamber
+      }
+    ];
+    // --- End config ---
+
+    // SVG icon paths for each icon type
+    const iconPaths = {
+      linkedin: 'M6 6h8v2h.1c.5-.9 1.7-2 3.4-2 3.6 0 4.3 2.4 4.3 5.5V20h-4v-6c0-1.4 0-3-2-3s-2.3 1.5-2.3 3v6H6V6zm-2 0h4v14H4V6zm2-2a2 2 0 110 4 2 2 0 010-4z',
+      github: 'M12 2C6.48 2 2 6.58 2 12.26c0 4.5 2.87 8.32 6.84 9.67.5.09.68-.22.68-.48 0-.24-.01-.87-.01-1.7-2.78.61-3.37-1.36-3.37-1.36-.45-1.18-1.1-1.5-1.1-1.5-.9-.63.07-.62.07-.62 1 .07 1.53 1.05 1.53 1.05.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.7 0 0 .84-.28 2.75 1.05A9.38 9.38 0 0112 6.8c.85.004 1.7.12 2.5.34 1.9-1.33 2.74-1.05 2.74-1.05.55 1.4.2 2.44.1 2.7.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.8-4.57 5.06.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.8 0 .26.18.57.69.47A10.01 10.01 0 0022 12.26C22 6.58 17.52 2 12 2z',
+      instagram: 'M7 2C4.24 2 2 4.24 2 7v10c0 2.76 2.24 5 5 5h10c2.76 0 5-2.24 5-5V7c0-2.76-2.24-5-5-5H7zm10 2c1.65 0 3 1.35 3 3v10c0 1.65-1.35 3-3 3H7c-1.65 0-3-1.35-3-3V7c0-1.65 1.35-3 3-3h10zm-5 3a5 5 0 100 10 5 5 0 000-10zm0 2a3 3 0 110 6 3 3 0 010-6zm6.5-.5a1 1 0 100 2 1 1 0 000-2z',
+      // Use the provided "world" icon for web
+      web: 'M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0 M3.6 9h16.8 M3.6 15h16.8 M11.5 3a17 17 0 0 0 0 18 M12.5 3a17 17 0 0 1 0 18',
+      empty: '' // No icon for empty
+    };
+
+    class Revolver {
+      constructor(sites) {
+        this.sites = sites;
+        this.chambers = sites.length;
+        this.selected = 0;
+        this.rotation = 0;
+        this.spinVelocity = 0;
+        this.isSpinning = false;
+        this.friction = 0.95;
+        this.lastChamberIdx = 0;
+        this.spinningStopped = false;
+        this.isCocked = false;
+        this.cockAnimTimeout = null;
+        this.audioUnlocked = false;
+
+        // DOM elements
+        this.svg = document.getElementById('revolver-svg');
+        this.siteName = document.getElementById('site-name');
+        this.fireBtn = document.getElementById('fire-btn');
+        this.cockBtn = document.getElementById('cock-btn');
+        this.uncockBtn = document.getElementById('uncock-btn');
+        this.spinSound = document.getElementById('spin-sound');
+        this.shotSound = document.getElementById('shot-sound');
+        this.cockSound = document.getElementById('cock-sound');
+        this.emptySound = document.getElementById('empty-sound');
+        this.startOverlay = document.getElementById('start-overlay');
+        this.startBtn = document.getElementById('start-btn');
+
+        // Bind methods
+        this.unlockAudio = this.unlockAudio.bind(this);
+        this.drawRevolver = this.drawRevolver.bind(this);
+        this.updateUI = this.updateUI.bind(this);
+        this.animate = this.animate.bind(this);
+        this.spin = this.spin.bind(this);
+        this.cock = this.cock.bind(this);
+        this.uncock = this.uncock.bind(this);
+        this.fire = this.fire.bind(this);
+        this.handleKeydown = this.handleKeydown.bind(this);
+        this.handleWheel = this.handleWheel.bind(this);
+        this.handleTouchStart = this.handleTouchStart.bind(this);
+        this.handleTouchEnd = this.handleTouchEnd.bind(this);
+
+        // Touch state
+        this.touchStartX = null;
+
+        // Setup
+        this.setupEventListeners();
+        this.updateUI();
+      }
+
+      unlockAudio() {
+        if (this.audioUnlocked) return;
+        try {
+          if (typeof AudioContext !== "undefined" || typeof webkitAudioContext !== "undefined") {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            if (ctx.state === "suspended") ctx.resume();
+          }
+          // Play and pause both sounds to unlock them
+          [this.spinSound, this.shotSound, this.cockSound].forEach(audio => {
+            if (audio) {
+              audio.muted = true;
+              audio.play().catch(()=>{});
+              audio.pause();
+              audio.muted = false;
+            }
+          });
+          this.audioUnlocked = true;
+        } catch (e) {
+          // Audio unlock failed, ignore
+        }
+        // Always hide overlay after click, even if audio fails
+        if (this.startOverlay) {
+          this.startOverlay.classList.add('hidden');
+          setTimeout(() => {
+            this.startOverlay.style.display = 'none';
+          }, 600);
+        }
+      }
+
+      setupEventListeners() {
+        if (this.startBtn) {
+          this.startBtn.addEventListener('click', () => {
+            this.unlockAudio();
+          });
+        }
+        if (this.cockBtn) this.cockBtn.addEventListener('click', this.cock);
+        if (this.fireBtn) this.fireBtn.addEventListener('click', this.fire);
+        if (this.uncockBtn) this.uncockBtn.addEventListener('click', this.uncock);
+
+        window.addEventListener('keydown', this.handleKeydown);
+        window.addEventListener('wheel', this.handleWheel);
+
+        if (this.svg) {
+          this.svg.addEventListener('touchstart', this.handleTouchStart);
+          this.svg.addEventListener('touchend', this.handleTouchEnd);
+        }
+      }
+
+      drawRevolver(selectedIdx, rotationDeg = 0) {
+        if (!this.svg) return;
+        this.svg.innerHTML = '';
+        const center = 160, radius = 120;
+        const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        g.setAttribute("transform", `rotate(${rotationDeg},${center},${center})`);
+        // Draw cylinder
+        const cyl = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        cyl.setAttribute("cx", center);
+        cyl.setAttribute("cy", center);
+        cyl.setAttribute("r", radius);
+        cyl.setAttribute("fill", "#555");
+        cyl.setAttribute("stroke", "#222");
+        cyl.setAttribute("stroke-width", "8");
+        g.appendChild(cyl);
+
+        // Draw chambers
+        for (let i = 0; i < this.chambers; i++) {
+          const angle = (i / this.chambers) * 2 * Math.PI - Math.PI/2;
+          const x = center + Math.cos(angle) * 70;
+          const y = center + Math.sin(angle) * 70;
+          const chamber = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+          chamber.setAttribute("cx", x);
+          chamber.setAttribute("cy", y);
+          chamber.setAttribute("r", 32);
+          chamber.setAttribute("fill", i === selectedIdx ? "#ffd700" : "#222");
+          chamber.setAttribute("stroke", "#888");
+          chamber.setAttribute("stroke-width", "4");
+          g.appendChild(chamber);
+
+          // Chamber icon or label
+          const icon = this.sites[i].icon;
+          if (icon && iconPaths[icon]) {
+            if (icon === "web") {
+              // Draw the "web" icon using multiple paths for correct look
+              // Provided SVG has 5 paths (skip the first invisible one)
+              const webPaths = [
+                "M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0",
+                "M3.6 9h16.8",
+                "M3.6 15h16.8",
+                "M11.5 3a17 17 0 0 0 0 18",
+                "M12.5 3a17 17 0 0 1 0 18"
+              ];
+              webPaths.forEach(d => {
+                const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                p.setAttribute("d", d);
+                p.setAttribute("fill", "none");
+                p.setAttribute("stroke", "#fff");
+                p.setAttribute("stroke-width", "2");
+                p.setAttribute("stroke-linecap", "round");
+                p.setAttribute("stroke-linejoin", "round");
+                // Center at (x, y), icon is 24x24, so offset by 12, scale as needed
+                p.setAttribute("transform", `translate(${x - 12},${y - 12}) scale(1)`);
+                g.appendChild(p);
+              });
+            } else if (icon !== "empty") {
+              // Center the icon perfectly in the chamber
+              const svgIcon = document.createElementNS("http://www.w3.org/2000/svg", "path");
+              svgIcon.setAttribute("d", iconPaths[icon]);
+              svgIcon.setAttribute("fill", "#fff");
+              svgIcon.setAttribute("transform", `translate(${x - 12},${y - 12}) scale(1)`);
+              g.appendChild(svgIcon);
+            }
+            // If empty, do nothing (no label, no icon)
+          } else if (icon !== "empty") {
+            // fallback: first letter, but NOT for empty
+            const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            label.setAttribute("x", x);
+            label.setAttribute("y", y + 2);
+            label.setAttribute("class", "chamber-label");
+            label.textContent = this.sites[i].name[0];
+            g.appendChild(label);
+          }
+        }
+        // Draw center
+        const centerDot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        centerDot.setAttribute("cx", center);
+        centerDot.setAttribute("cy", center);
+        centerDot.setAttribute("r", 22);
+        centerDot.setAttribute("fill", "#222");
+        centerDot.setAttribute("stroke", "#888");
+        centerDot.setAttribute("stroke-width", "4");
+        g.appendChild(centerDot);
+
+        this.svg.appendChild(g);
+
+        // Cocked animation: add a hammer or highlight effect
+        if (this.isCocked) {
+          const hammer = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+          hammer.setAttribute("x", center - 12);
+          hammer.setAttribute("y", center - radius - 24);
+          hammer.setAttribute("width", 24);
+          hammer.setAttribute("height", 32);
+          hammer.setAttribute("fill", "#ffd700");
+          hammer.setAttribute("stroke", "#b8860b");
+          hammer.setAttribute("stroke-width", "3");
+          this.svg.appendChild(hammer);
+        }
+      }
+
+      updateUI() {
+        // Calculate selected chamber based on rotation
+        let idx = ((this.chambers - Math.round(this.rotation / (360 / this.chambers)) % this.chambers) % this.chambers);
+        this.selected = idx;
+        this.drawRevolver(this.selected, this.rotation);
+        if (this.siteName) this.siteName.textContent = this.sites[this.selected].name;
+        if (this.fireBtn) {
+          this.fireBtn.disabled = !this.isCocked;
+          this.fireBtn.setAttribute('aria-disabled', this.fireBtn.disabled ? 'true' : 'false');
+          this.fireBtn.classList.toggle('disabled', this.fireBtn.disabled);
+        }
+        if (this.cockBtn) {
+          this.cockBtn.disabled = this.isCocked;
+          this.cockBtn.setAttribute('aria-disabled', this.cockBtn.disabled ? 'true' : 'false');
+          this.cockBtn.classList.toggle('disabled', this.cockBtn.disabled);
+        }
+        if (this.uncockBtn) {
+          this.uncockBtn.disabled = !this.isCocked;
+          this.uncockBtn.setAttribute('aria-disabled', this.uncockBtn.disabled ? 'true' : 'false');
+          this.uncockBtn.classList.toggle('disabled', this.uncockBtn.disabled);
+        }
+      }
+
+      animate() {
+        this.spinningStopped = false;
+        let prevIdx = ((this.chambers - Math.round(this.rotation / (360 / this.chambers)) % this.chambers) % this.chambers);
+        this.rotation += this.spinVelocity;
+        this.spinVelocity *= this.friction;
+
+        // Chamber index after rotation
+        let currIdx = ((this.chambers - Math.round(this.rotation / (360 / this.chambers)) % this.chambers) % this.chambers);
+
+        // Play spin sound if chamber changes
+        if (this.audioUnlocked && currIdx !== this.lastChamberIdx) {
+          try {
+            if (this.spinSound) {
+              this.spinSound.currentTime = 0;
+              this.spinSound.play().catch(()=>{});
+            }
+          } catch (e) {}
+          this.lastChamberIdx = currIdx;
+        }
+
+        this.updateUI();
+
+        if (Math.abs(this.spinVelocity) < 0.1 && this.isSpinning) {
+          this.spinVelocity = 0;
+          this.isSpinning = false;
+          // Snap to nearest chamber
+          const snapAngle = Math.round(this.rotation / (360 / this.chambers)) * (360 / this.chambers);
+          this.rotation = snapAngle;
+          this.updateUI();
+          this.spinningStopped = true;
+          // Play load (hammer) sound
+          if (this.audioUnlocked) {
+            try {
+              if (this.cockSound) {
+                this.cockSound.currentTime = 0;
+                this.cockSound.play().catch(()=>{});
+              }
+            } catch (e) {}
+          }
+          return;
+        }
+        requestAnimationFrame(this.animate);
+      }
+
+      spin(dir) {
+        if (!this.audioUnlocked || this.isCocked) return;
+        this.spinVelocity += dir * 12;
+        if (!this.isSpinning) {
+          this.isSpinning = true;
+          this.animate();
+        }
+      }
+
+      cock() {
+        if (!this.audioUnlocked || this.isCocked || this.isSpinning) return;
+        this.isCocked = true;
+        if (this.fireBtn) this.fireBtn.disabled = false;
+        if (this.cockBtn) this.cockBtn.disabled = true;
+        // Play cock (load) sound and animate hammer
+        if (this.audioUnlocked) {
+          try {
+            if (this.cockSound) {
+              this.cockSound.currentTime = 0;
+              this.cockSound.play().catch(()=>{});
+            }
+          } catch (e) {}
+        }
+        this.updateUI();
+        // Optional: hammer animation effect
+        if (this.cockAnimTimeout) clearTimeout(this.cockAnimTimeout);
+        this.cockAnimTimeout = setTimeout(() => {
+          // Remove hammer highlight after a short time if desired
+          // this.isCocked = false; this.updateUI();
+        }, 500);
+      }
+
+      uncock() {
+        if (!this.audioUnlocked || !this.isCocked || this.isSpinning) return;
+        this.isCocked = false;
+        if (this.fireBtn) this.fireBtn.disabled = true;
+        if (this.cockBtn) this.cockBtn.disabled = false;
+        if (this.uncockBtn) this.uncockBtn.disabled = true;
+        // Optional: play a sound for uncocking (reuse cockSound)
+        if (this.audioUnlocked) {
+          try {
+            if (this.cockSound) {
+              this.cockSound.currentTime = 0;
+              this.cockSound.play().catch(()=>{});
+            }
+          } catch (e) {}
+        }
+        this.updateUI();
+      }
+
+      fire() {
+        if (!this.audioUnlocked || !this.isCocked) return;
+        if (this.fireBtn) this.fireBtn.disabled = true;
+        if (this.cockBtn) this.cockBtn.disabled = false;
+        this.isCocked = false;
+        // Play shot sound or empty sound, then open in new tab if not empty
+        if (this.audioUnlocked) {
+          try {
+            if (this.sites[this.selected].url) {
+              if (this.shotSound) {
+                this.shotSound.currentTime = 0;
+                this.shotSound.play().catch(()=>{});
+              }
+            } else {
+              if (this.emptySound) {
+                this.emptySound.currentTime = 0;
+                this.emptySound.play().catch(()=>{});
+              }
+            }
+          } catch (e) {}
+        }
+        this.updateUI();
+        setTimeout(() => {
+          if (this.sites[this.selected].url) {
+            window.open(this.sites[this.selected].url, '_blank');
+          }
+        }, 600);
+      }
+
+      handleKeydown(e) {
+        if (!this.audioUnlocked) return;
+        if (['ArrowLeft','a','A','w','W','ArrowUp'].includes(e.key)) {
+          this.spin(-1);
+        } else if (['ArrowRight','d','D','s','S','ArrowDown'].includes(e.key)) {
+          this.spin(1);
+        } else if (e.key === 'c' || e.key === 'C') {
+          this.cock();
+        } else if (e.key === 'u' || e.key === 'U') {
+          this.uncock();
+        } else if ((e.key === ' ' || e.key === 'Enter')) {
+          this.fire();
+        }
+      }
+
+      handleWheel(e) {
+        if (!this.audioUnlocked) return;
+        this.spin(e.deltaY > 0 ? 1 : -1);
+      }
+
+      handleTouchStart(e) {
+        if (!this.audioUnlocked) return;
+        if (e.touches.length === 1) this.touchStartX = e.touches[0].clientX;
+      }
+
+      handleTouchEnd(e) {
+        if (!this.audioUnlocked) return;
+        if (e.touches.length === 0 && this.touchStartX !== null) {
+          const touchEndX = e.changedTouches[0].clientX;
+          const diffX = touchEndX - this.touchStartX;
+          this.touchStartX = null;
+          if (Math.abs(diffX) > 30) {
+            this.spin(diffX > 0 ? 1 : -1);
+          }
+        }
+      }
+    }
+
+    // Initialize revolver
+    const revolver = new Revolver(sites);
+
+    // Preload sounds
+    document.addEventListener('DOMContentLoaded', () => {
+      [revolver.spinSound, revolver.shotSound, revolver.cockSound].forEach(audio => {
+        if (audio) {
+          audio.volume = 0.8; // Set desired volume level
+          audio.load();
+        }
+      });
+    });
+  </script>
+</body>
+</html>
