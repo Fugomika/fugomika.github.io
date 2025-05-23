@@ -287,10 +287,18 @@
         this.handleKeydown = this.handleKeydown.bind(this);
         this.handleWheel = this.handleWheel.bind(this);
         this.handleTouchStart = this.handleTouchStart.bind(this);
+        this.handleTouchMove = this.handleTouchMove.bind(this);
         this.handleTouchEnd = this.handleTouchEnd.bind(this);
+        this.handleMouseDown = this.handleMouseDown.bind(this);
+        this.handleMouseMove = this.handleMouseMove.bind(this);
+        this.handleMouseUp = this.handleMouseUp.bind(this);
 
         // Touch state
         this.touchStartX = null;
+        this.touchStartY = null;
+        this.touchStartAngle = null;
+        this.startRotation = null;
+        this.isDragging = false;
 
         // Setup
         this.setupEventListeners();
@@ -340,9 +348,110 @@
         window.addEventListener('wheel', this.handleWheel);
 
         if (this.svg) {
-          this.svg.addEventListener('touchstart', this.handleTouchStart);
-          this.svg.addEventListener('touchend', this.handleTouchEnd);
+          this.svg.addEventListener('touchstart', this.handleTouchStart, {passive: false});
+          this.svg.addEventListener('touchmove', this.handleTouchMove, {passive: false});
+          this.svg.addEventListener('touchend', this.handleTouchEnd, {passive: false});
+          this.svg.addEventListener('mousedown', this.handleMouseDown);
         }
+      }
+
+      getPointerAngle(clientX, clientY) {
+        const rect = this.svg.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        return Math.atan2(clientY - centerY, clientX - centerX) * 180 / Math.PI;
+      }
+
+      handleTouchStart = (e) => {
+        if (!this.audioUnlocked || this.isCocked || this.isSpinning) return;
+        if (e.touches.length === 1) {
+          e.preventDefault();
+          const touch = e.touches[0];
+          this.isDragging = true;
+          this.touchStartAngle = this.getPointerAngle(touch.clientX, touch.clientY);
+          this.startRotation = this.rotation;
+          this.lastDragIdx = ((this.chambers - Math.round(this.rotation / (360 / this.chambers)) % this.chambers) % this.chambers);
+        }
+      }
+
+      handleTouchMove = (e) => {
+        if (!this.isDragging) return;
+        if (e.touches.length === 1) {
+          e.preventDefault();
+          const touch = e.touches[0];
+          const angle = this.getPointerAngle(touch.clientX, touch.clientY);
+          let delta = angle - this.touchStartAngle;
+          if (delta > 180) delta -= 360;
+          if (delta < -180) delta += 360;
+          this.rotation = this.startRotation + delta;
+          this.spinVelocity = 0;
+          // Chamber index after rotation
+          let currIdx = ((this.chambers - Math.round(this.rotation / (360 / this.chambers)) % this.chambers) % this.chambers);
+          if (this.audioUnlocked && currIdx !== this.lastDragIdx) {
+            try {
+              if (this.spinSound) {
+                this.spinSound.currentTime = 0;
+                this.spinSound.play().catch(()=>{});
+              }
+            } catch (e) {}
+            this.lastDragIdx = currIdx;
+          }
+          this.updateUI();
+        }
+      }
+
+      handleTouchEnd = (e) => {
+        if (!this.isDragging) return;
+        this.isDragging = false;
+        // Snap to nearest chamber
+        const snapAngle = Math.round(this.rotation / (360 / this.chambers)) * (360 / this.chambers);
+        this.rotation = snapAngle;
+        this.updateUI();
+      }
+
+      handleMouseDown = (e) => {
+        if (!this.audioUnlocked || this.isCocked || this.isSpinning) return;
+        e.preventDefault();
+        this.isDragging = true;
+        this.touchStartAngle = this.getPointerAngle(e.clientX, e.clientY);
+        this.startRotation = this.rotation;
+        this.lastDragIdx = ((this.chambers - Math.round(this.rotation / (360 / this.chambers)) % this.chambers) % this.chambers);
+        window.addEventListener('mousemove', this.handleMouseMove);
+        window.addEventListener('mouseup', this.handleMouseUp);
+      }
+
+      handleMouseMove = (e) => {
+        if (!this.isDragging) return;
+        e.preventDefault();
+        const angle = this.getPointerAngle(e.clientX, e.clientY);
+        let delta = angle - this.touchStartAngle;
+        if (delta > 180) delta -= 360;
+        if (delta < -180) delta += 360;
+        this.rotation = this.startRotation + delta;
+        this.spinVelocity = 0;
+        // Chamber index after rotation
+        let currIdx = ((this.chambers - Math.round(this.rotation / (360 / this.chambers)) % this.chambers) % this.chambers);
+        if (this.audioUnlocked && currIdx !== this.lastDragIdx) {
+          try {
+            if (this.spinSound) {
+              this.spinSound.currentTime = 0;
+              this.spinSound.play().catch(()=>{});
+            }
+          } catch (e) {}
+          this.lastDragIdx = currIdx;
+        }
+        this.updateUI();
+      }
+
+      handleMouseUp = (e) => {
+        if (!this.isDragging) return;
+        this.isDragging = false;
+        window.removeEventListener('mousemove', this.handleMouseMove);
+        window.removeEventListener('mouseup', this.handleMouseUp);
+        // Snap to nearest chamber
+        const snapAngle = Math.round(this.rotation / (360 / this.chambers)) * (360 / this.chambers);
+        this.rotation = snapAngle;
+        this.updateUI();
       }
 
       drawRevolver(selectedIdx, rotationDeg = 0) {
@@ -601,31 +710,18 @@
           this.cock();
         } else if (e.key === 'u' || e.key === 'U') {
           this.uncock();
-        } else if ((e.key === ' ' || e.key === 'Enter')) {
-          this.fire();
+        } else if (e.key === ' ' || e.key === 'Enter') {
+          if (this.fireBtn && this.fireBtn.disabled) {
+            this.cock();
+          } else {
+            this.fire();
+          }
         }
       }
 
       handleWheel(e) {
         if (!this.audioUnlocked) return;
         this.spin(e.deltaY > 0 ? 1 : -1);
-      }
-
-      handleTouchStart(e) {
-        if (!this.audioUnlocked) return;
-        if (e.touches.length === 1) this.touchStartX = e.touches[0].clientX;
-      }
-
-      handleTouchEnd(e) {
-        if (!this.audioUnlocked) return;
-        if (e.touches.length === 0 && this.touchStartX !== null) {
-          const touchEndX = e.changedTouches[0].clientX;
-          const diffX = touchEndX - this.touchStartX;
-          this.touchStartX = null;
-          if (Math.abs(diffX) > 30) {
-            this.spin(diffX > 0 ? 1 : -1);
-          }
-        }
       }
     }
 
