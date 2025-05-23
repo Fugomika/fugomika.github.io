@@ -229,7 +229,7 @@
     // --- Config: Add your websites here ---
     const sites = [
       {
-        name: "LinkedIn",
+        name: "LinkinPark",
         icon: "linkedin",
         url: "https://www.linkedin.com/in/abdurrahmanfarrasft/"
       },
@@ -583,7 +583,7 @@
           }, 1000);
         } else {
           this.mainTitle.textContent = this.mainTitleDefault;
-          this.mainTitle.style.color = "#ffd700";
+          this.mainTitle.style.color = "#eee";
         }
       }
 
@@ -657,7 +657,13 @@
         if (this.fireBtn) this.fireBtn.disabled = true;
         if (this.cockBtn) this.cockBtn.disabled = false;
         this.isCocked = false;
-        // Play shot sound or empty sound, then open in new tab if not empty
+
+        // Open the link immediately if not empty
+        if (this.sites[this.selected].url) {
+          window.open(this.sites[this.selected].url, '_blank');
+        }
+
+        // Play shot sound or empty sound
         if (this.audioUnlocked) {
           try {
             if (this.sites[this.selected].url) {
@@ -675,11 +681,6 @@
         }
         this.setMainTitleState("shoot");
         this.updateUI();
-        setTimeout(() => {
-          if (this.sites[this.selected].url) {
-            window.open(this.sites[this.selected].url, '_blank');
-          }
-        }, 600);
       }
 
       animate() {
