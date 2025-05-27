@@ -782,29 +782,33 @@
       if (!swipeBox) return;
       let startX = null;
       let startY = null;
+      let lastDx = 0;
       swipeBox.addEventListener('touchstart', function(e) {
         if (e.touches && e.touches.length > 0) {
           startX = e.touches[0].clientX;
           startY = e.touches[0].clientY;
+          lastDx = 0;
+        }
+      });
+      swipeBox.addEventListener('touchmove', function(e) {
+        if (startX === null) return;
+        if (e.touches && e.touches.length > 0) {
+          const dx = e.touches[0].clientX - startX;
+          // Only handle horizontal movement
+          const chamberWidth = swipeBox.offsetWidth / revolver.chambers;
+          // Calculate how many chambers worth of movement since last event
+          const delta = dx - lastDx;
+          if (Math.abs(delta) > 0) {
+            // Spin proportional to delta/chamberWidth
+            revolver.spin(delta / chamberWidth * 1.5); // 1.5 is a sensitivity factor
+            lastDx = dx;
+          }
         }
       });
       swipeBox.addEventListener('touchend', function(e) {
-        if (startX === null) return;
-        if (e.changedTouches && e.changedTouches.length > 0) {
-          const dx = e.changedTouches[0].clientX - startX;
-          const dy = e.changedTouches[0].clientY - startY;
-          const threshold = 30;
-          if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > threshold) {
-            // Left/right swipe
-            if (dx > 0) {
-              revolver.spin(-1); // right swipe
-            } else {
-              revolver.spin(1); // left swipe
-            }
-          }
-        }
         startX = null;
         startY = null;
+        lastDx = 0;
       });
     })();
   </script>
